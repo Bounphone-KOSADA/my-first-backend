@@ -3,7 +3,7 @@ const app = express();
 const productRoutes = require('./routes/productRoute');
 const orderRoutes = require('./routes/orderRoute');
 const paymentRoutes = require('./routes/paymentRoute');
-// TODO: Import analyticsRoutes
+const analyticsRoutes = require('./routes/analyticsRoute');
 
 app.use(express.json());
 
@@ -23,6 +23,6 @@ app.get('/', (req, res) => {
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
-// TODO: Mount analyticsRoutes at '/api/analytics'
+app.use('/api/analytics', analyticsRoutes);
 
 module.exports = app;
