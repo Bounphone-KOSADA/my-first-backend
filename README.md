@@ -1,351 +1,179 @@
-# Exercise 3: Orders API with Product References
+# Exercise 4: Payment API with Advanced Validation
 
 ## Objective
-Create an Orders API that references the Product collection, demonstrating MongoDB relationships, subdocuments, population, and middleware.
+Create a Payments API with advanced schema features: unique/sparse indexes, timestamps, and payment processing logic.
 
 ## Prerequisites
-- Completed Exercise 2 (Products API with advanced queries)
-- MongoDB connected and running
-- Products collection has sample data
+- Completed Exercise 3 (Orders API)
+- MongoDB connected with Products and Orders data
 
 ## Your Tasks
 
-### Task 1: Define Order Schema (`models/Order.js`)
+### Task 1: Define Payment Schema (`models/Payment.js`)
 
-Create an Order schema with the following fields:
+Key features to implement:
+- **ObjectId reference** to Order (unique - one payment per order)
+- **Sparse unique index** on transactionId (allows multiple nulls before processing)
+- **Timestamps** option for automatic createdAt/updatedAt
+- **Enum validation** for paymentMethod and status
 
 ```javascript
-const orderSchema = new mongoose.Schema({
-  orderNumber: {
-    type: String,
+const paymentSchema = new mongoose.Schema({
+  order: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Order',
     required: true,
     unique: true
   },
   customerName: {
     type: String,
-    required: [true, 'Customer name is required'],
+    required: true,
     trim: true
   },
   customerEmail: {
     type: String,
-    required: [true, 'Customer email is required'],
+    required: true,
     lowercase: true,
     trim: true
   },
-  items: [{
-    product: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Product',
-      required: true
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: [1, 'Quantity must be at least 1']
-    },
-    price: {
-      type: Number,
-      required: true
-    }
-  }],
-  totalAmount: {
+  amount: {
     type: Number,
+    required: true,
+    min: [0, 'Amount cannot be negative']
+  },
+  paymentMethod: {
+    type: String,
+    enum: ['CreditCard', 'DebitCard', 'PayPal', 'Cash'],
     required: true
   },
   status: {
     type: String,
-    enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
+    enum: ['Pending', 'Completed', 'Failed', 'Refunded'],
     default: 'Pending'
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
-  }
+  transactionId: {
+    type: String,
+    sparse: true,  // Allows multiple null values
+    unique: true   // But enforces uniqueness when value exists
+  },
+  processedAt: Date
+}, {
+  timestamps: true  // Automatically adds createdAt and updatedAt
 });
 ```
 
-### Task 2: Add Pre-Save Middleware for Auto-Generated Order Number
+### Task 2: Implement Payment Controller (`controllers/paymentController.js`)
 
-Add middleware to automatically generate orderNumber before saving:
+Six functions to implement:
 
+1. **createPayment** - Create new payment
+2. **getAllPayments** - Get all payments (populate order)
+3. **getPaymentById** - Get single payment by ID
+4. **getPaymentByOrderId** - Find payment by order ID
+5. **processPayment** - Update status, add transactionId, set processedAt
+6. **getPaymentsByStatus** - Filter payments by status
+
+**Key implementation for processPayment:**
 ```javascript
-orderSchema.pre('save', function(next) {
-  if (!this.orderNumber) {
-    // Format: ORD-YYYYMMDD-XXXX
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-    this.orderNumber = `ORD-${dateStr}-${random}`;
-  }
-  next();
-});
-```
-
-### Task 3: Implement Order Controller Functions
-
-#### `createOrder`
-```javascript
-const createOrder = async (req, res) => {
+const processPayment = async (req, res) => {
   try {
-    // Validate items array
-    if (!req.body.items || req.body.items.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Order must contain at least one item'
-      });
-    }
+    const { transactionId } = req.body;
 
-    const order = await Order.create(req.body);
-
-    res.status(201).json({
-      success: true,
-      data: order
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-```
-
-#### `getAllOrders` with Population
-```javascript
-const getAllOrders = async (req, res) => {
-  try {
-    // Populate product details in items array
-    const orders = await Order.find()
-      .populate('items.product', 'name price category');
-
-    res.status(200).json({
-      success: true,
-      count: orders.length,
-      data: orders
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-```
-
-#### `getOrderById`
-```javascript
-const getOrderById = async (req, res) => {
-  try {
-    const order = await Order.findById(req.params.id)
-      .populate('items.product');
-
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: order
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-```
-
-#### `getOrdersByCustomerEmail`
-```javascript
-const getOrdersByCustomerEmail = async (req, res) => {
-  try {
-    const orders = await Order.find({ customerEmail: req.params.email })
-      .populate('items.product')
-      .sort({ createdAt: -1 });
-
-    res.status(200).json({
-      success: true,
-      count: orders.length,
-      data: orders
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-```
-
-#### `updateOrderStatus`
-```javascript
-const updateOrderStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-
-    const order = await Order.findByIdAndUpdate(
+    const payment = await Payment.findByIdAndUpdate(
       req.params.id,
-      { status },
+      {
+        status: 'Completed',
+        transactionId: transactionId || `TXN-${Date.now()}`,
+        processedAt: new Date()
+      },
       { new: true, runValidators: true }
     );
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      data: order
-    });
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message
-    });
+    // Handle not found, return updated payment
   }
 };
 ```
 
-#### `cancelOrder`
-```javascript
-const cancelOrder = async (req, res) => {
-  try {
-    const order = await Order.findByIdAndDelete(req.params.id);
+### Task 3: Define Payment Routes (`routes/paymentRoute.js`)
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: 'Order not found'
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: 'Order cancelled successfully',
-      data: order
-    });
-  } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
-  }
-};
-```
-
-### Task 4: Define Order Routes
-
-In `routes/orderRoute.js`:
+Remember proper route ordering:
 
 ```javascript
-router.get('/customer/:email', orderController.getOrdersByCustomerEmail);
-router.patch('/:id/status', orderController.updateOrderStatus);
-router.post('/', orderController.createOrder);
-router.get('/', orderController.getAllOrders);
-router.get('/:id', orderController.getOrderById);
-router.delete('/:id', orderController.cancelOrder);
+// Specific routes first
+router.get('/order/:orderId', paymentController.getPaymentByOrderId);
+router.get('/status/:status', paymentController.getPaymentsByStatus);
+router.patch('/:id/process', paymentController.processPayment);
+
+// Then parameterized routes
+router.post('/', paymentController.createPayment);
+router.get('/', paymentController.getAllPayments);
+router.get('/:id', paymentController.getPaymentById);
 ```
 
-**Important:** `/customer/:email` and `/:id/status` must come before `/:id`
-
-### Task 5: Mount Order Routes in app.js
+### Task 4: Mount Routes in app.js
 
 ```javascript
-const orderRoutes = require('./routes/orderRoute');
-app.use('/api/orders', orderRoutes);
+const paymentRoutes = require('./routes/paymentRoute');
+app.use('/api/payments', paymentRoutes);
 ```
 
-## Testing Your Orders API
+## Testing
 
-### Create an Order
-First, get a product ID from your Products collection, then:
-
+### Create Payment
 ```bash
-POST http://localhost:3000/api/orders
-Content-Type: application/json
-
+POST http://localhost:3000/api/payments
 {
+  "order": "674abc123def456789",
   "customerName": "Alice Johnson",
   "customerEmail": "alice@example.com",
-  "items": [
-    {
-      "product": "674131e9c8b9d1f2a3456789",
-      "quantity": 2,
-      "price": 999
-    }
-  ],
-  "totalAmount": 1998
+  "amount": 1998,
+  "paymentMethod": "CreditCard"
 }
 ```
 
-### Get All Orders (with populated products)
+### Process Payment
 ```bash
-GET http://localhost:3000/api/orders
-```
-
-### Get Order by ID
-```bash
-GET http://localhost:3000/api/orders/{orderId}
-```
-
-### Get Orders by Customer Email
-```bash
-GET http://localhost:3000/api/orders/customer/alice@example.com
-```
-
-### Update Order Status
-```bash
-PATCH http://localhost:3000/api/orders/{orderId}/status
-Content-Type: application/json
-
+PATCH http://localhost:3000/api/payments/{paymentId}/process
 {
-  "status": "Shipped"
+  "transactionId": "TXN-CUSTOM-123"
 }
 ```
 
-### Cancel Order
+### Get Payments by Status
 ```bash
-DELETE http://localhost:3000/api/orders/{orderId}
+GET http://localhost:3000/api/payments/status/Completed
+GET http://localhost:3000/api/payments/status/Pending
 ```
 
-## Key Concepts to Learn
+### Get Payment by Order
+```bash
+GET http://localhost:3000/api/payments/order/{orderId}
+```
 
-1. **ObjectId References**
-   - Using `mongoose.Schema.Types.ObjectId`
-   - The `ref` property to specify which model to reference
+## Key Concepts
 
-2. **Subdocuments**
-   - Arrays of embedded documents (items array)
-   - Each item has product, quantity, and price
+### 1. Unique Indexes
+- Ensures no duplicate values in the collection
+- Used for `order` field (one payment per order)
 
-3. **Population**
-   - `.populate('items.product')` - joins Product data
-   - `.populate('items.product', 'name price')` - select specific fields
+### 2. Sparse Indexes
+- Only includes documents where the indexed field exists
+- Combined with unique: allows multiple null values but enforces uniqueness for non-null
+- Perfect for `transactionId` (null until processed)
 
-4. **Pre-Save Middleware**
-   - Runs before document is saved
-   - Auto-generate orderNumber
-   - Use `this` to access document
+### 3. Timestamps
+- `timestamps: true` in schema options
+- Automatically manages `createdAt` and `updatedAt` fields
+- No manual Date.now() needed
 
-5. **PATCH vs PUT**
-   - PATCH updates specific fields (status only)
-   - PUT replaces entire document
-
-6. **Route Ordering**
-   - Specific routes must come before parameterized routes
-   - `/customer/:email` before `/:id`
+### 4. Partial Updates
+- PATCH for updating specific fields
+- Use `findByIdAndUpdate` with `{ new: true, runValidators: true }`
 
 ## Tips
 
-- Always populate when you need related data
-- Validate that referenced documents exist before creating orders
-- Use pre-save middleware for auto-generated fields
-- Remember to handle cases where populated fields might be null (deleted products)
-- Test with actual Product IDs from your database
+- Test sparse index: Create multiple payments without transactionId (should work)
+- Test unique constraint: Try processing two payments with same transactionId (should fail)
+- Verify timestamps are auto-updated on document changes
+- Ensure order reference exists before creating payment
+- Handle cases where order might be deleted but payment exists
