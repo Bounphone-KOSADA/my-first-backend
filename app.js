@@ -1,7 +1,6 @@
 const express = require('express');
 const app = express();
-
-// TODO: Import productRoutes from './routes/productRoute'
+const productRoutes = require('./routes/productRoute');
 
 app.use(express.json());
 
@@ -14,6 +13,7 @@ app.get('/', (req, res) => {
     });
 });
 
-// TODO: Mount productRoutes at '/api/products'
+// Mount product routes
+app.use('/api/products', productRoutes);
 
 module.exports = app;

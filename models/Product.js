@@ -1,17 +1,38 @@
 const mongoose = require('mongoose');
 
-// TODO: Define the Product schema with the following fields:
-// - name: String (required)
-// - description: String
-// - price: Number (required, min: 0)
-// - category: String (enum: ['Electronics', 'Clothing', 'Food', 'Books', 'Other'])
-// - stock: Number (default: 0, min: 0)
-// - createdAt: Date (default: Date.now)
-
+// Define the Product schema
 const productSchema = new mongoose.Schema({
-  // Your schema definition here
+  name: {
+    type: String,
+    required: [true, 'Product name is required'],
+    trim: true
+  },
+  description: {
+    type: String,
+    trim: true
+  },
+  price: {
+    type: Number,
+    required: [true, 'Product price is required'],
+    min: [0, 'Price cannot be negative']
+  },
+  category: {
+    type: String,
+    enum: {
+      values: ['Electronics', 'Clothing', 'Food', 'Books', 'Other'],
+      message: '{VALUE} is not a valid category'
+    }
+  },
+  stock: {
+    type: Number,
+    default: 0,
+    min: [0, 'Stock cannot be negative']
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
-// TODO: Create and export the Product model
-
+// Create and export the Product model
 module.exports = mongoose.model('Product', productSchema);

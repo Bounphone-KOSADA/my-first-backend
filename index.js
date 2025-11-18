@@ -4,8 +4,10 @@ const connectDB = require('./config/db');
 
 const port = process.env.PORT || 3000;
 
-// TODO: Call connectDB() to connect to MongoDB before starting the server
+// Connect to MongoDB
+connectDB();
 
+// Start the server
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
