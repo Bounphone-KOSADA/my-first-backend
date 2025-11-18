@@ -1,51 +1,151 @@
 const Payment = require('../models/Payment');
 
-// TODO: Implement createPayment
-// - Create payment with req.body
-// - Return 201 status
+// Create a new payment
 const createPayment = async (req, res) => {
-  // Your code here
+  try {
+    const payment = await Payment.create(req.body);
+
+    res.status(201).json({
+      success: true,
+      data: payment
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement getAllPayments
-// - Find all payments
-// - Populate order details
-// - Return all payments
+// Get all payments
 const getAllPayments = async (req, res) => {
-  // Your code here
+  try {
+    const payments = await Payment.find()
+      .populate('order', 'orderNumber customerName totalAmount status')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: payments.length,
+      data: payments
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement getPaymentById
-// - Find payment by ID
-// - Populate order details
-// - Return 404 if not found
+// Get payment by ID
 const getPaymentById = async (req, res) => {
-  // Your code here
+  try {
+    const payment = await Payment.findById(req.params.id)
+      .populate('order');
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: payment
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement getPaymentByOrderId
-// - Find payment by order ID
-// - Populate order details
-// - Return 404 if not found
+// Get payment by order ID
 const getPaymentByOrderId = async (req, res) => {
-  // Your code here
+  try {
+    const payment = await Payment.findOne({ order: req.params.orderId })
+      .populate('order');
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found for this order'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: payment
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement processPayment
-// - Update payment status to 'Completed'
-// - Generate and set transactionId
-// - Set processedAt to current date
-// - Use findByIdAndUpdate
+// Process payment (update status, add transactionId, set processedAt)
 const processPayment = async (req, res) => {
-  // Your code here
+  try {
+    const { transactionId } = req.body;
+
+    // Generate transactionId if not provided
+    const txnId = transactionId || `TXN-${Date.now()}`;
+
+    const payment = await Payment.findByIdAndUpdate(
+      req.params.id,
+      {
+        status: 'Completed',
+        transactionId: txnId,
+        processedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    ).populate('order');
+
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'Payment not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment processed successfully',
+      data: payment
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement getPaymentsByStatus
-// - Extract status from req.params
-// - Find all payments with that status
-// - Populate order details
+// Get payments by status
 const getPaymentsByStatus = async (req, res) => {
-  // Your code here
+  try {
+    const { status } = req.params;
+
+    const payments = await Payment.find({ status })
+      .populate('order', 'orderNumber customerName totalAmount')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: payments.length,
+      status: status,
+      data: payments
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
 module.exports = {

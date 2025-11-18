@@ -2,14 +2,14 @@ const express = require('express');
 const router = express.Router();
 const paymentController = require('../controllers/paymentController');
 
-// TODO: Define routes for payment operations
-// POST   /                - Create payment
-// GET    /                - Get all payments
-// GET    /:id             - Get payment by ID
-// GET    /order/:orderId  - Get payment by order ID
-// PATCH  /:id/process     - Process payment
-// GET    /status/:status  - Get payments by status
+// Specific routes MUST come before parameterized routes
+router.get('/order/:orderId', paymentController.getPaymentByOrderId);
+router.get('/status/:status', paymentController.getPaymentsByStatus);
+router.patch('/:id/process', paymentController.processPayment);
 
-// NOTE: Remember to place specific routes BEFORE parameterized routes
+// CRUD routes
+router.post('/', paymentController.createPayment);
+router.get('/', paymentController.getAllPayments);
+router.get('/:id', paymentController.getPaymentById);
 
 module.exports = router;
