@@ -21,27 +21,51 @@ const createProduct = async (req, res) => {
 // Get all products with filtering, sorting, and pagination
 const getAllProducts = async (req, res) => {
   try {
-    // TODO: Extract query parameters
-    // const { category, minPrice, maxPrice, sort, order, page, limit } = req.query;
+    // Extract query parameters
+    const { category, minPrice, maxPrice, sort, order, page, limit } = req.query;
 
-    // TODO: Build filter object
-    // Example: if category exists, add to filter
-    // Example: if minPrice/maxPrice exist, use $gte/$lte operators
+    // Build filter object dynamically
+    const filter = {};
 
-    // TODO: Build sort object
-    // Example: if sort field provided, create sort object with order (asc=1, desc=-1)
+    // Filter by category
+    if (category) {
+      filter.category = category;
+    }
 
-    // TODO: Implement pagination
-    // Calculate skip value: (page - 1) * limit
+    // Filter by price range
+    if (minPrice || maxPrice) {
+      filter.price = {};
+      if (minPrice) filter.price.$gte = Number(minPrice);
+      if (maxPrice) filter.price.$lte = Number(maxPrice);
+    }
 
-    // TODO: Execute query with filter, sort, skip, and limit
+    // Build sort object
+    const sortObj = {};
+    if (sort) {
+      // order: 'asc' = 1, 'desc' = -1
+      sortObj[sort] = order === 'desc' ? -1 : 1;
+    }
 
-    // For now, return all products (students will enhance this)
-    const products = await Product.find();
+    // Pagination
+    const pageNum = parseInt(page) || 1;
+    const limitNum = parseInt(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
+
+    // Execute query with all options
+    const products = await Product.find(filter)
+      .sort(sortObj)
+      .skip(skip)
+      .limit(limitNum);
+
+    // Get total count for pagination info
+    const total = await Product.countDocuments(filter);
 
     res.status(200).json({
       success: true,
       count: products.length,
+      total: total,
+      page: pageNum,
+      pages: Math.ceil(total / limitNum),
       data: products
     });
   } catch (error) {
@@ -137,22 +161,66 @@ const deleteProduct = async (req, res) => {
   }
 };
 
-// TODO: Implement searchProducts
-// - Extract 'q' query parameter
-// - Use regex to search in name and description fields
-// - Use $or operator to search multiple fields
-// - Return matching products
+// Search products by name or description
 const searchProducts = async (req, res) => {
-  // Your code here
+  try {
+    const { q } = req.query;
+
+    if (!q) {
+      return res.status(400).json({
+        success: false,
+        message: 'Search query parameter "q" is required'
+      });
+    }
+
+    // Create case-insensitive regex pattern
+    const searchPattern = new RegExp(q, 'i');
+
+    // Search in name OR description fields
+    const products = await Product.find({
+      $or: [
+        { name: searchPattern },
+        { description: searchPattern }
+      ]
+    });
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      query: q,
+      data: products
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement getLowStockProducts
-// - Extract 'threshold' query parameter (default: 10)
-// - Find products where stock is less than threshold
-// - Use $lt operator
-// - Return matching products
+// Get products with stock below threshold
 const getLowStockProducts = async (req, res) => {
-  // Your code here
+  try {
+    // Default threshold is 10
+    const threshold = parseInt(req.query.threshold) || 10;
+
+    // Find products where stock is less than threshold
+    const products = await Product.find({
+      stock: { $lt: threshold }
+    }).sort({ stock: 1 }); // Sort by stock ascending
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      threshold: threshold,
+      data: products
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
 module.exports = {
