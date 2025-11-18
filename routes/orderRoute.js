@@ -2,14 +2,14 @@ const express = require('express');
 const router = express.Router();
 const orderController = require('../controllers/orderController');
 
-// TODO: Define routes for order operations
-// POST   /                 - Create order
-// GET    /                 - Get all orders
-// GET    /:id              - Get order by ID
-// GET    /customer/:email  - Get orders by customer email
-// PATCH  /:id/status       - Update order status
-// DELETE /:id              - Cancel order
+// Specific routes MUST come before parameterized routes
+router.get('/customer/:email', orderController.getOrdersByCustomerEmail);
+router.patch('/:id/status', orderController.updateOrderStatus);
 
-// NOTE: Remember to place specific routes BEFORE parameterized routes
+// CRUD routes
+router.post('/', orderController.createOrder);
+router.get('/', orderController.getAllOrders);
+router.get('/:id', orderController.getOrderById);
+router.delete('/:id', orderController.cancelOrder);
 
 module.exports = router;

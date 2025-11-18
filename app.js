@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const productRoutes = require('./routes/productRoute');
-// TODO: Import orderRoutes
+const orderRoutes = require('./routes/orderRoute');
 
 app.use(express.json());
 
@@ -17,6 +17,6 @@ app.get('/', (req, res) => {
 
 // Mount routes
 app.use('/api/products', productRoutes);
-// TODO: Mount orderRoutes at '/api/orders'
+app.use('/api/orders', orderRoutes);
 
 module.exports = app;

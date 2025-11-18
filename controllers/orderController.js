@@ -1,53 +1,156 @@
 const Order = require('../models/Order');
 
-// TODO: Implement createOrder
-// - Validate that items array is not empty
-// - Create order with req.body
-// - Return 201 status
+// Create a new order
 const createOrder = async (req, res) => {
-  // Your code here
+  try {
+    // Validate items array
+    if (!req.body.items || req.body.items.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Order must contain at least one item'
+      });
+    }
+
+    const order = await Order.create(req.body);
+
+    res.status(201).json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement getAllOrders
-// - Use populate() to include product details
-// - Populate the 'items.product' field
-// - Return all orders with populated data
+// Get all orders with populated product details
 const getAllOrders = async (req, res) => {
-  // Your code here
+  try {
+    // Populate product details in items array
+    const orders = await Order.find()
+      .populate('items.product', 'name price category')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      data: orders
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement getOrderById
-// - Find order by ID
-// - Use populate() for product details
-// - Return 404 if not found
+// Get a single order by ID
 const getOrderById = async (req, res) => {
-  // Your code here
+  try {
+    const order = await Order.findById(req.params.id)
+      .populate('items.product');
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement getOrdersByCustomerEmail
-// - Extract email from req.params
-// - Find all orders for that customer email
-// - Populate product details
-// - Return matching orders
+// Get orders by customer email
 const getOrdersByCustomerEmail = async (req, res) => {
-  // Your code here
+  try {
+    const orders = await Order.find({ customerEmail: req.params.email })
+      .populate('items.product')
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      data: orders
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement updateOrderStatus
-// - Extract new status from req.body
-// - Use findByIdAndUpdate to update only the status field
-// - Return 404 if order not found
-// - Validate status is one of the enum values
+// Update order status
 const updateOrderStatus = async (req, res) => {
-  // Your code here
+  try {
+    const { status } = req.body;
+
+    if (!status) {
+      return res.status(400).json({
+        success: false,
+        message: 'Status is required'
+      });
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true, runValidators: true }
+    );
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    res.status(400).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
-// TODO: Implement cancelOrder
-// - Delete order by ID
-// - Return 404 if not found
-// - Return success message
+// Cancel/Delete an order
 const cancelOrder = async (req, res) => {
-  // Your code here
+  try {
+    const order = await Order.findByIdAndDelete(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: 'Order not found'
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: 'Order cancelled successfully',
+      data: order
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
 };
 
 module.exports = {
