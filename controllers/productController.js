@@ -18,10 +18,25 @@ const createProduct = async (req, res) => {
   }
 };
 
-// Get all products
+// Get all products with filtering, sorting, and pagination
 const getAllProducts = async (req, res) => {
   try {
-    // Find all products in the database
+    // TODO: Extract query parameters
+    // const { category, minPrice, maxPrice, sort, order, page, limit } = req.query;
+
+    // TODO: Build filter object
+    // Example: if category exists, add to filter
+    // Example: if minPrice/maxPrice exist, use $gte/$lte operators
+
+    // TODO: Build sort object
+    // Example: if sort field provided, create sort object with order (asc=1, desc=-1)
+
+    // TODO: Implement pagination
+    // Calculate skip value: (page - 1) * limit
+
+    // TODO: Execute query with filter, sort, skip, and limit
+
+    // For now, return all products (students will enhance this)
     const products = await Product.find();
 
     res.status(200).json({
@@ -122,10 +137,30 @@ const deleteProduct = async (req, res) => {
   }
 };
 
+// TODO: Implement searchProducts
+// - Extract 'q' query parameter
+// - Use regex to search in name and description fields
+// - Use $or operator to search multiple fields
+// - Return matching products
+const searchProducts = async (req, res) => {
+  // Your code here
+};
+
+// TODO: Implement getLowStockProducts
+// - Extract 'threshold' query parameter (default: 10)
+// - Find products where stock is less than threshold
+// - Use $lt operator
+// - Return matching products
+const getLowStockProducts = async (req, res) => {
+  // Your code here
+};
+
 module.exports = {
   createProduct,
   getAllProducts,
   getProductById,
   updateProduct,
-  deleteProduct
+  deleteProduct,
+  searchProducts,
+  getLowStockProducts
 };

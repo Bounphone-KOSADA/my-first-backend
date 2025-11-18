@@ -1,170 +1,201 @@
-# Exercise 1: MongoDB Setup & Products API
+# Exercise 2: Products API with Advanced Queries
 
 ## Objective
-Learn to integrate MongoDB with Express.js and implement basic CRUD operations for a Products API.
+Build on Exercise 1 by adding advanced query features: filtering, sorting, pagination, and search functionality.
 
-## Setup Instructions
+## Prerequisites
+- Completed Exercise 1 (Basic Product CRUD is already implemented)
+- MongoDB connected and running
+- `.env` file configured
 
-### 1. Install Dependencies
-Dependencies are already installed:
-- express
-- mongoose
-- dotenv
+## Your Tasks
 
-### 2. Configure MongoDB
-1. Create a `.env` file (use `.env.example` as template)
-2. Update `MONGODB_URI` with your MongoDB connection string
-   - Local: `mongodb://localhost:27017/day2-products-db`
-   - Atlas: Your MongoDB Atlas connection string
+### Task 1: Enhanced `getAllProducts` with Filtering, Sorting & Pagination
 
-### 3. Your Tasks
+Modify the `getAllProducts` function in `controllers/productController.js` to support:
 
-#### Task 1: Database Connection (`config/db.js`)
-Implement the `connectDB` function:
-- Use `mongoose.connect()` with `process.env.MONGODB_URI`
-- Handle connection success and errors
-- Log connection status to console
+#### Query Parameters to Support:
+- `category` - Filter by category
+- `minPrice` - Filter products with price >= minPrice
+- `maxPrice` - Filter products with price <= maxPrice
+- `sort` - Field to sort by (e.g., "price", "name", "stock")
+- `order` - Sort order: "asc" or "desc"
+- `page` - Page number for pagination (default: 1)
+- `limit` - Items per page (default: 10)
 
-#### Task 2: Product Schema (`models/Product.js`)
-Define the Product schema with these fields:
-- `name`: String (required)
-- `description`: String
-- `price`: Number (required, minimum: 0)
-- `category`: String (enum: ['Electronics', 'Clothing', 'Food', 'Books', 'Other'])
-- `stock`: Number (default: 0, minimum: 0)
-- `createdAt`: Date (default: Date.now)
+#### Implementation Steps:
 
-#### Task 3: Product Controller (`controllers/productController.js`)
-Implement all five controller functions:
+1. **Extract query parameters**
+   ```javascript
+   const { category, minPrice, maxPrice, sort, order, page, limit } = req.query;
+   ```
 
-1. **createProduct**
-   - Use `Product.create(req.body)`
-   - Return 201 status on success
-   - Return 400 status on error
+2. **Build filter object**
+   ```javascript
+   const filter = {};
+   if (category) filter.category = category;
+   if (minPrice || maxPrice) {
+     filter.price = {};
+     if (minPrice) filter.price.$gte = Number(minPrice);
+     if (maxPrice) filter.price.$lte = Number(maxPrice);
+   }
+   ```
 
-2. **getAllProducts**
-   - Use `Product.find()`
-   - Return 200 status with { success, count, data }
-   - Return 500 status on error
+3. **Build sort object**
+   ```javascript
+   const sortObj = {};
+   if (sort) {
+     sortObj[sort] = order === 'desc' ? -1 : 1;
+   }
+   ```
 
-3. **getProductById**
-   - Use `Product.findById(req.params.id)`
-   - Return 404 if not found
-   - Return 200 status with { success, data }
-   - Return 500 status on error
+4. **Calculate pagination**
+   ```javascript
+   const pageNum = parseInt(page) || 1;
+   const limitNum = parseInt(limit) || 10;
+   const skip = (pageNum - 1) * limitNum;
+   ```
 
-4. **updateProduct**
-   - Use `Product.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })`
-   - Return 404 if not found
-   - Return 200 status with updated product
-   - Return 400 status on error
+5. **Execute query**
+   ```javascript
+   const products = await Product.find(filter)
+     .sort(sortObj)
+     .skip(skip)
+     .limit(limitNum);
+   ```
 
-5. **deleteProduct**
-   - Use `Product.findByIdAndDelete(req.params.id)`
-   - Return 404 if not found
-   - Return 200 status with success message
-   - Return 500 status on error
+### Task 2: Implement `searchProducts` Function
 
-#### Task 4: Product Routes (`routes/productRoute.js`)
-Define these routes:
-- `POST /` - Create product
-- `GET /` - Get all products
-- `GET /:id` - Get product by ID
-- `PUT /:id` - Update product
-- `DELETE /:id` - Delete product
+Create a search endpoint that searches products by name or description:
 
-#### Task 5: Connect Everything (`app.js` and `index.js`)
-- In `app.js`: Import and mount productRoutes at '/api/products'
-- In `index.js`: Call `connectDB()` before starting the server
+```javascript
+const searchProducts = async (req, res) => {
+  try {
+    const { q } = req.query;
 
-## Running the Application
+    // Build regex pattern for case-insensitive search
+    const searchPattern = new RegExp(q, 'i');
 
+    // Search in name OR description
+    const products = await Product.find({
+      $or: [
+        { name: searchPattern },
+        { description: searchPattern }
+      ]
+    });
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      data: products
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+```
+
+### Task 3: Implement `getLowStockProducts` Function
+
+Create an endpoint to find products with low stock:
+
+```javascript
+const getLowStockProducts = async (req, res) => {
+  try {
+    const threshold = parseInt(req.query.threshold) || 10;
+
+    // Find products where stock is less than threshold
+    const products = await Product.find({
+      stock: { $lt: threshold }
+    });
+
+    res.status(200).json({
+      success: true,
+      count: products.length,
+      threshold: threshold,
+      data: products
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+  }
+};
+```
+
+### Task 4: Add New Routes
+
+In `routes/productRoute.js`, add these routes **BEFORE** the `/:id` route:
+
+```javascript
+router.get('/search', productController.searchProducts);
+router.get('/low-stock', productController.getLowStockProducts);
+```
+
+**Important:** These must come before `router.get('/:id')` to avoid route conflicts!
+
+## Testing Your Enhanced API
+
+### Filter by Category
 ```bash
-# Start the server
-node index.js
+GET http://localhost:3000/api/products?category=Electronics
 ```
 
-## Testing Your API
-
-### Create a Product
+### Filter by Price Range
 ```bash
-POST http://localhost:3000/api/products
-Content-Type: application/json
-
-{
-  "name": "Laptop",
-  "description": "High-performance laptop",
-  "price": 999,
-  "category": "Electronics",
-  "stock": 15
-}
+GET http://localhost:3000/api/products?minPrice=10&maxPrice=100
 ```
 
-### Get All Products
+### Sort Products
 ```bash
-GET http://localhost:3000/api/products
+# Sort by price ascending
+GET http://localhost:3000/api/products?sort=price&order=asc
+
+# Sort by name descending
+GET http://localhost:3000/api/products?sort=name&order=desc
 ```
 
-### Get Product by ID
+### Pagination
 ```bash
-GET http://localhost:3000/api/products/{id}
+# Get page 2 with 5 items per page
+GET http://localhost:3000/api/products?page=2&limit=5
 ```
 
-### Update Product
+### Combined Query
 ```bash
-PUT http://localhost:3000/api/products/{id}
-Content-Type: application/json
-
-{
-  "price": 899,
-  "stock": 10
-}
+GET http://localhost:3000/api/products?category=Electronics&minPrice=100&sort=price&order=asc&page=1&limit=10
 ```
 
-### Delete Product
+### Search Products
 ```bash
-DELETE http://localhost:3000/api/products/{id}
+GET http://localhost:3000/api/products/search?q=laptop
 ```
 
-## Expected Response Format
+### Get Low Stock Products
+```bash
+# Default threshold of 10
+GET http://localhost:3000/api/products/low-stock
 
-### Success Response
-```json
-{
-  "success": true,
-  "data": { /* product object */ }
-}
-```
-
-### Success Response with Multiple Items
-```json
-{
-  "success": true,
-  "count": 5,
-  "data": [ /* array of products */ ]
-}
-```
-
-### Error Response
-```json
-{
-  "success": false,
-  "message": "Error message here"
-}
+# Custom threshold
+GET http://localhost:3000/api/products/low-stock?threshold=5
 ```
 
 ## Key Concepts to Learn
-- MongoDB connection with Mongoose
-- Schema definition and validation
-- Model creation
-- Async/await with database operations
-- Error handling in async functions
-- RESTful API endpoints
-- HTTP status codes (200, 201, 400, 404, 500)
+- Query parameters in Express (`req.query`)
+- MongoDB comparison operators (`$gte`, `$lte`, `$lt`)
+- MongoDB logical operators (`$or`)
+- Regular expressions for text search
+- Query chaining (`.find().sort().skip().limit()`)
+- Pagination logic
+- Dynamic filter building
 
 ## Tips
-- Use try-catch blocks in all controller functions
-- Always validate required fields in schema
-- Use meaningful error messages
-- Test each endpoint as you build it
-- Check MongoDB connection before testing routes
+- Always convert query parameters to correct types (Number, parseInt)
+- Provide default values for pagination (page: 1, limit: 10)
+- Use RegExp with 'i' flag for case-insensitive search
+- Remember route order matters - specific routes before parameterized routes
+- Test edge cases: empty results, invalid parameters, etc.
