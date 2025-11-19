@@ -30,7 +30,7 @@ exports.register = async (req, res) => {
     }
 
     // Check if user already exists
-    const existingUser = User.findByEmail(email);
+    const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({
         success: false,
@@ -68,7 +68,7 @@ exports.login = async (req, res) => {
     }
 
     // Find user by email
-    const user = User.findByEmail(email);
+    const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -77,7 +77,7 @@ exports.login = async (req, res) => {
     }
 
     // Compare password
-    const isPasswordValid = await User.comparePassword(password, user.password);
+    const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -87,20 +87,17 @@ exports.login = async (req, res) => {
 
     // Generate JWT token
     const token = jwt.sign(
-      { id: user.id, email: user.email },
+      { id: user._id, email: user.email },
       jwtConfig.secret,
       { expiresIn: jwtConfig.expiresIn }
     );
-
-    // Return user without password
-    const { password: _, ...userWithoutPassword } = user;
 
     res.json({
       success: true,
       message: 'Login successful',
       data: {
         token,
-        user: userWithoutPassword
+        user: user
       }
     });
   } catch (error) {
