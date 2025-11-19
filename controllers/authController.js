@@ -1,4 +1,6 @@
 const User = require('../models/User');
+const jwt = require('jsonwebtoken');
+const jwtConfig = require('../config/jwt');
 
 exports.register = async (req, res) => {
   try {
@@ -48,6 +50,23 @@ exports.register = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Registration failed',
+      error: error.message
+    });
+  }
+};
+
+exports.login = async (req, res) => {
+  try {
+    // TODO: Implement login logic
+    // 1. Validate input (email, password)
+    // 2. Find user by email
+    // 3. Compare password with hashed password
+    // 4. Generate JWT token
+    // 5. Return token and user data
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Login failed',
       error: error.message
     });
   }
