@@ -4,6 +4,7 @@ const productRoutes = require('./routes/productRoute');
 const orderRoutes = require('./routes/orderRoute');
 const paymentRoutes = require('./routes/paymentRoute');
 const analyticsRoutes = require('./routes/analyticsRoute');
+const authRoutes = require('./routes/auth');
 
 app.use(express.json());
 
@@ -11,6 +12,7 @@ app.get('/', (req, res) => {
     res.json({
         message: "Welcome to the E-Commerce API",
         endpoints: {
+            auth: "/api/auth",
             products: "/api/products",
             orders: "/api/orders",
             payments: "/api/payments",
@@ -20,6 +22,7 @@ app.get('/', (req, res) => {
 });
 
 // Mount routes
+app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payments', paymentRoutes);
