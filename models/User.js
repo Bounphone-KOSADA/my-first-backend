@@ -1,42 +1,45 @@
+const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
-const users = [];
-let nextId = 1;
-
-const User = {
-  create: async (userData) => {
-    const hashedPassword = await bcrypt.hash(userData.password, 10);
-
-    const user = {
-      id: nextId++,
-      name: userData.name,
-      email: userData.email,
-      password: hashedPassword,
-      createdAt: new Date()
-    };
-
-    users.push(user);
-
-    // Return user without password
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+const userSchema = new mongoose.Schema({
+  name: {
+    type: String,
+    required: true
   },
-
-  findByEmail: (email) => {
-    return users.find(user => user.email === email);
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true
   },
-
-  findById: (id) => {
-    const user = users.find(user => user.id === parseInt(id));
-    if (!user) return null;
-
-    const { password, ...userWithoutPassword } = user;
-    return userWithoutPassword;
-  },
-
-  comparePassword: async (plainPassword, hashedPassword) => {
-    return await bcrypt.compare(plainPassword, hashedPassword);
+  password: {
+    type: String,
+    required: true
   }
+}, {
+  timestamps: true
+});
+
+// Hash password before saving
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+
+  this.password = await bcrypt.hash(this.password, 10);
+  next();
+});
+
+// Method to compare passwords
+userSchema.methods.comparePassword = async function(plainPassword) {
+  return await bcrypt.compare(plainPassword, this.password);
 };
+
+// Method to return user without password
+userSchema.methods.toJSON = function() {
+  const user = this.toObject();
+  delete user.password;
+  return user;
+};
+
+const User = mongoose.model('User', userSchema);
 
 module.exports = User;
