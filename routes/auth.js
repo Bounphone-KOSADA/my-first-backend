@@ -3,8 +3,6 @@ const router = express.Router();
 const authController = require('../controllers/authController');
 
 router.post('/register', authController.register);
-
-// TODO: Add login route
-// POST /api/auth/login
+router.post('/login', authController.login);
 
 module.exports = router;
