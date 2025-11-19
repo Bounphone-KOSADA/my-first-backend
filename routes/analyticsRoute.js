@@ -1,6 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const analyticsController = require('../controllers/analyticsController');
+const { authenticate, authorize } = require('../middleware/auth');
+
+// Apply admin-only authentication to all analytics routes
+router.use(authenticate, authorize('admin'));
 
 // Product analytics routes
 router.get('/products/count', analyticsController.getProductsCount);
