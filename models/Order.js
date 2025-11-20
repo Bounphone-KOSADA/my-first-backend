@@ -4,7 +4,6 @@ const mongoose = require('mongoose');
 const orderSchema = new mongoose.Schema({
   orderNumber: {
     type: String,
-    required: true,
     unique: true
   },
   customerName: {
@@ -54,8 +53,20 @@ const orderSchema = new mongoose.Schema({
 });
 
 // Pre-save middleware to auto-generate orderNumber
-orderSchema.pre('save', function(next) {
-  if (!this.orderNumber) {
+orderSchema.pre('save', async function(next) {
+  if (this.isNew && !this.orderNumber) {
+    // Format: ORD-YYYYMMDD-XXXX
+    const date = new Date();
+    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+    this.orderNumber = `ORD-${dateStr}-${random}`;
+  }
+  next();
+});
+
+// Also handle validate hook for .create()
+orderSchema.pre('validate', function(next) {
+  if (this.isNew && !this.orderNumber) {
     // Format: ORD-YYYYMMDD-XXXX
     const date = new Date();
     const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');

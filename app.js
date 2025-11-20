@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const app = express();
 const productRoutes = require('./routes/productRoute');
 const orderRoutes = require('./routes/orderRoute');
@@ -6,6 +7,7 @@ const paymentRoutes = require('./routes/paymentRoute');
 const analyticsRoutes = require('./routes/analyticsRoute');
 const authRoutes = require('./routes/auth');
 
+app.use(cors());
 app.use(express.json());
 
 app.get('/', (req, res) => {
